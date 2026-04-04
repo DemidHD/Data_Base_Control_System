@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Библиотечная система</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<!-- ─── Sidebar ─────────────────────────────────────────────────────────── -->
+<aside id="sidebar">
+  <div class="logo">
+    📚 Библиотечная система
+    <span>Учёт книжного фонда</span>
+  </div>
+  <nav>
+    <div class="section-label">Главная</div>
+    <a data-section="dashboard"><span class="icon">🏠</span>Обзор</a>
+
+    <div class="section-label">Справочники</div>
+    <a data-section="filials"><span class="icon">🏛</span>Филиалы</a>
+    <a data-section="users"><span class="icon">👤</span>Читатели</a>
+    <a data-section="books"><span class="icon">📖</span>Книги</a>
+
+    <div class="section-label">Фонд</div>
+    <a data-section="loans"><span class="icon">📦</span>Экземпляры</a>
+    <a data-section="transactions"><span class="icon">🔄</span>Поступление / Списание</a>
+
+    <div class="section-label">Выдача</div>
+    <a data-section="userloans"><span class="icon">📋</span>Формуляр</a>
+    <a data-section="userfilials"><span class="icon">🔗</span>Рег. в филиалах</a>
+
+    <div class="section-label">Каталог</div>
+    <a data-section="catalogs"><span class="icon">🗂</span>Каталог</a>
+
+    <div class="section-label">Администрирование</div>
+    <a data-section="sql"><span class="icon">💻</span>SQL-консоль</a>
+  </nav>
+</aside>
+
+<!-- ─── Main ─────────────────────────────────────────────────────────────── -->
+<div id="main">
+  <div id="topbar">
+    <h1 id="page-title">Обзор системы</h1>
+    <a href="/docs" target="_blank" class="btn btn-ghost btn-sm">API Docs ↗</a>
+  </div>
+  <div id="content">
+    <div class="loading"><div class="spinner"></div>Загрузка...</div>
+  </div>
+</div>
+
+<!-- ─── Toast ─────────────────────────────────────────────────────────────── -->
+<div id="toast-container"></div>
+
+<!-- ─── Modal ─────────────────────────────────────────────────────────────── -->
+<div id="modal-overlay" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-title">Форма</h3>
+      <button class="modal-close" id="modal-close">×</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="modal-cancel">Отмена</button>
+      <button class="btn btn-primary" id="modal-save">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/app.js"></script>
+</body>
+</html>

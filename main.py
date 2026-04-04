@@ -1,54 +1,40 @@
-def add(a, b):
-    return a + b
+from fastapi import FastAPI, Request
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from tortoise.contrib.fastapi import register_tortoise
 
-def subtract(a, b):
-    return a - b
+from app.database import TORTOISE_ORM
+from app.routers import filial, users, books, loans, user_loans, catalogs, transactions, user_filial, sql_query
 
-def multiply(a, b):
-    return a * b
+app = FastAPI(
+    title="Система учёта книжного фонда библиотеки",
+    description="FastAPI + Tortoise ORM + PostgreSQL",
+    version="1.0.0",
+)
 
-def divide(a, b):
-    if b == 0:
-        print("Ошибка: деление на ноль")
-        return None
-    return a / b
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
 
-def calculator():
-    print("Калькулятор")
-    print("Операции: + - * /")
+# Подключение роутеров
+app.include_router(filial.router)
+app.include_router(users.router)
+app.include_router(books.router)
+app.include_router(loans.router)
+app.include_router(user_loans.router)
+app.include_router(catalogs.router)
+app.include_router(transactions.router)
+app.include_router(user_filial.router)
+app.include_router(sql_query.router)
 
-    while True:
-        print("\nВведите 'выход' для завершения")
-        a = input("Первое число: ")
-        if a.lower() == "выход":
-            break
+# Регистрация Tortoise ORM
+register_tortoise(
+    app,
+    config=TORTOISE_ORM,
+    generate_schemas=True,
+    add_exception_handlers=True,
+)
 
-        op = input("Операция (+, -, *, /): ")
 
-        b = input("Второе число: ")
-        if b.lower() == "выход":
-            break
-
-        try:
-            a, b = float(a), float(b)
-        except ValueError:
-            print("Ошибка: введите числа")
-            continue
-
-        if op == "+":
-            result = add(a, b)
-        elif op == "-":
-            result = subtract(a, b)
-        elif op == "*":
-            result = multiply(a, b)
-        elif op == "/":
-            result = divide(a, b)
-        else:
-            print("Ошибка: неизвестная операция")
-            continue
-
-        if result is not None:
-            print(f"Результат: {a} {op} {b} = {result}")
-
-if __name__ == "__main__":
-    calculator()
+@app.get("/", include_in_schema=False)
+async def index(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})

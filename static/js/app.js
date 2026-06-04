@@ -523,7 +523,7 @@ function renderSQL() {
     <div class="card">
       <div class="card-header"><h2>Примеры запросов</h2></div>
       <div style="display:flex;flex-wrap:wrap;gap:8px">
-        ${sqlExamples.map(e => `<button class="btn btn-ghost btn-sm" onclick="setSQLExample(${JSON.stringify(e.q)})">${e.label}</button>`).join('')}
+        ${sqlExamples.map(e => `<button class="btn btn-ghost btn-sm" onclick="setSQLExample(${esc(JSON.stringify(e.q))})">${e.label}</button>`).join('')}
       </div>
     </div>`;
 }

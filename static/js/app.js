@@ -5,7 +5,11 @@ async function api(method, url, body) {
   if (body !== undefined) opts.body = JSON.stringify(body);
   const res = await fetch(url, opts);
   if (res.status === 204) return null;
-  const data = await res.json();
+   const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); } catch {
+    throw new Error(`Сервер вернул не-JSON ответ (${res.status}): убедитесь, что FastAPI запущен на порту 8000`);
+  }
   if (!res.ok) throw new Error(data.detail || 'Ошибка сервера');
   return data;
 }

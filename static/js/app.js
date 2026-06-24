@@ -32,9 +32,10 @@ const modalTitle = document.getElementById('modal-title');
 const modalBody = document.getElementById('modal-body');
 const modalSave = document.getElementById('modal-save');
 
-function openModal(title, html, onSave) {
+function openModal(title, html, onSave, saveLabel = 'Сохранить') {
   modalTitle.textContent = title;
   modalBody.innerHTML = html;
+  modalSave.textContent = saveLabel;
   overlay.classList.remove('hidden');
   modalSave.onclick = onSave;
 }
@@ -507,6 +508,17 @@ async function returnBook(id) {
 
 function renderSQL() {
   document.getElementById('page-title').textContent = 'SQL-консоль';
+
+  const groupsHtml = sqlSections.map((sec, si) => `
+    <details class="sql-group">
+      <summary>${sec.label}<span class="sql-group-count">${sec.actions.length}</span></summary>
+      <div class="sql-actions">
+        ${sec.actions.map((a, ai) =>
+          `<button class="btn btn-ghost btn-sm" data-si="${si}" data-ai="${ai}">${esc(a.label)}</button>`
+        ).join('')}
+      </div>
+    </details>`).join('');
+
   document.getElementById('content').innerHTML = `
     <div class="card">
       <div class="card-header"><h2>Произвольный SQL-запрос</h2></div>
@@ -521,52 +533,173 @@ function renderSQL() {
       <div id="sql-result"></div>
     </div>
     <div class="card">
-      <div class="card-header"><h2>Примеры запросов</h2></div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px">
-        ${sqlExamples.map(e => `<button class="btn btn-ghost btn-sm" onclick="setSQLExample(${JSON.stringify(e.q)})">${e.label}</button>`).join('')}
-      </div>
+      <div class="card-header"><h2>Готовые запросы</h2></div>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">
+        Выберите раздел и действие — откроется окно с готовым SQL-шаблоном. Подставьте значения вместо &lt;...&gt; и нажмите «Выполнить».
+      </p>
+      <div id="sql-groups">${groupsHtml}</div>
+    </div>`;
+
+  document.getElementById('sql-groups').addEventListener('click', e => {
+    const btn = e.target.closest('button[data-si]');
+    if (!btn) return;
+    const sec = sqlSections[+btn.dataset.si];
+    const act = sec.actions[+btn.dataset.ai];
+    openSQLTemplate(`${sec.label} → ${act.label}`, act.q);
+  });
+}
+
+// Готовые запросы, сгруппированные по таблицам БД (1 раздел = 1 таблица).
+// <...> — параметры, которые пользователь подставляет в открывшемся окне.
+const sqlSections = [
+  {
+    label: '🏛 Филиалы',
+    actions: [
+      { label: 'Выбрать все', q: 'SELECT * FROM filial;' },
+      { label: 'Найти по названию', q: "SELECT * FROM filial\nWHERE name LIKE '%<часть названия>%';" },
+      { label: 'Добавить филиал', q: "INSERT INTO filial (name, address)\nVALUES ('<название>', '<адрес>');" },
+      { label: 'Изменить по id', q: "UPDATE filial\nSET name = '<новое название>', address = '<новый адрес>'\nWHERE id = <id>;" },
+      { label: 'Удалить по id', q: 'DELETE FROM filial\nWHERE id = <id>;' },
+      { label: 'Стеллажи филиала', q: 'SELECT * FROM rack\nWHERE filial_id = <id филиала>;' },
+    ],
+  },
+  {
+    label: '🗄 Стеллажи',
+    actions: [
+      { label: 'Выбрать все (с филиалом)', q: 'SELECT r.id, r.coordinates, r.room_number, f.name AS filial\nFROM rack r\nJOIN filial f ON r.filial_id = f.id;' },
+      { label: 'По филиалу', q: 'SELECT * FROM rack\nWHERE filial_id = <id филиала>;' },
+      { label: 'Добавить стеллаж', q: "INSERT INTO rack (coordinates, room_number, filial_id)\nVALUES ('<координаты>', '<номер комнаты>', <id филиала>);" },
+      { label: 'Изменить по id', q: "UPDATE rack\nSET coordinates = '<координаты>', room_number = '<комната>'\nWHERE id = <id>;" },
+      { label: 'Удалить по id', q: 'DELETE FROM rack\nWHERE id = <id>;' },
+      { label: 'Экземпляры на стеллаже', q: 'SELECT c.id, b.name, c.status\nFROM copy c\nJOIN book b ON c.book_id = b.id\nWHERE c.rack_id = <id стеллажа>;' },
+    ],
+  },
+  {
+    label: '📖 Книги',
+    actions: [
+      { label: 'Выбрать все', q: 'SELECT * FROM book\nORDER BY name;' },
+      { label: 'Найти по автору', q: "SELECT * FROM book\nWHERE author LIKE '%<автор>%';" },
+      { label: 'Найти по названию', q: "SELECT * FROM book\nWHERE name LIKE '%<название>%';" },
+      { label: 'Добавить книгу', q: "INSERT INTO book (name, author, year_of_publication, genre)\nVALUES ('<название>', '<автор>', <год>, '<жанр>');" },
+      { label: 'Изменить по id', q: "UPDATE book\nSET name = '<название>', author = '<автор>', year_of_publication = <год>, genre = '<жанр>'\nWHERE id = <id>;" },
+      { label: 'Удалить по id', q: 'DELETE FROM book\nWHERE id = <id>;' },
+      { label: 'Наличие экземпляров', q: 'SELECT status, COUNT(*) AS count\nFROM copy\nWHERE book_id = <id книги>\nGROUP BY status;' },
+    ],
+  },
+  {
+    label: '📦 Экземпляры',
+    actions: [
+      { label: 'Выбрать все (с книгой)', q: 'SELECT c.id, b.name, b.author, c.status, c.condition, c.rack_id\nFROM copy c\nJOIN book b ON c.book_id = b.id;' },
+      { label: 'Доступные (в наличии)', q: "SELECT c.id, b.name, b.author\nFROM copy c\nJOIN book b ON c.book_id = b.id\nWHERE c.status = 'в наличии';" },
+      { label: 'Передать человеку (выдать)', q: "-- Выполняется в 2 шага (последовательно):\n-- 1) запись в формуляре\nINSERT INTO loan (reader_id, copy_id, issue_date, planned_return_date)\nVALUES (<id читателя>, <id экземпляра>, CURRENT_DATE, date('now', '+14 day'));\n-- 2) экземпляр становится «на руках»\nUPDATE copy SET status = 'на руках'\nWHERE id = <id экземпляра> AND status = 'в наличии';" },
+      { label: 'Принять возврат', q: "-- Выполняется в 2 шага (последовательно):\nUPDATE loan SET actual_return_date = CURRENT_DATE\nWHERE copy_id = <id экземпляра> AND actual_return_date IS NULL;\nUPDATE copy SET status = 'в наличии'\nWHERE id = <id экземпляра>;" },
+      { label: 'Добавить экземпляр', q: "INSERT INTO copy (book_id, status, condition, rack_id)\nVALUES (<id книги>, 'в наличии', 'хорошее', <id стеллажа>);" },
+      { label: 'Списать экземпляр', q: "UPDATE copy SET status = 'списан'\nWHERE id = <id>;" },
+      { label: 'Переместить на стеллаж', q: 'UPDATE copy SET rack_id = <id стеллажа>\nWHERE id = <id экземпляра>;' },
+      { label: 'Удалить по id', q: 'DELETE FROM copy\nWHERE id = <id>;' },
+    ],
+  },
+  {
+    label: '👤 Читатели',
+    actions: [
+      { label: 'Выбрать все', q: 'SELECT * FROM reader;' },
+      { label: 'Найти по ФИО', q: "SELECT * FROM reader\nWHERE full_name LIKE '%<ФИО>%';" },
+      { label: 'Найти по паспорту', q: "SELECT * FROM reader\nWHERE passport_data = '<серия номер>';" },
+      { label: 'Добавить читателя', q: "INSERT INTO reader (full_name, birth_date, passport_data, profession, status)\nVALUES ('<ФИО>', '<ГГГГ-ММ-ДД>', '<серия номер>', '<профессия>', 'активный');" },
+      { label: 'Выписать читателя', q: "UPDATE reader\nSET status = 'выписан', discharge_date = CURRENT_DATE\nWHERE id = <id>;" },
+      { label: 'Изменить по id', q: "UPDATE reader\nSET full_name = '<ФИО>', profession = '<профессия>'\nWHERE id = <id>;" },
+      { label: 'Что на руках у читателя', q: 'SELECT b.name, b.author, l.issue_date, l.planned_return_date\nFROM loan l\nJOIN copy c ON l.copy_id = c.id\nJOIN book b ON c.book_id = b.id\nWHERE l.reader_id = <id читателя> AND l.actual_return_date IS NULL;' },
+      { label: 'Удалить по id', q: 'DELETE FROM reader\nWHERE id = <id>;' },
+    ],
+  },
+  {
+    label: '🔗 Регистрации',
+    actions: [
+      { label: 'Выбрать все (с читателем и филиалом)', q: 'SELECT reg.id, r.full_name, reg.ticket_number, f.name AS filial, reg.registration_date\nFROM registration reg\nJOIN reader r ON reg.reader_id = r.id\nJOIN filial f ON reg.filial_id = f.id;' },
+      { label: 'Регистрации читателя', q: 'SELECT * FROM registration\nWHERE reader_id = <id читателя>;' },
+      { label: 'Зарегистрировать в филиале', q: "INSERT INTO registration (reader_id, filial_id, ticket_number, registration_date)\nVALUES (<id читателя>, <id филиала>, '<номер билета>', CURRENT_DATE);" },
+      { label: 'Изменить № билета', q: "UPDATE registration\nSET ticket_number = '<номер билета>'\nWHERE id = <id>;" },
+      { label: 'Удалить по id', q: 'DELETE FROM registration\nWHERE id = <id>;' },
+    ],
+  },
+  {
+    label: '📋 Формуляр (выдачи)',
+    actions: [
+      { label: 'Выбрать все', q: 'SELECT * FROM loan\nORDER BY issue_date DESC;' },
+      { label: 'Книги на руках (активные)', q: 'SELECT l.id, r.full_name, b.name, l.issue_date, l.planned_return_date\nFROM loan l\nJOIN reader r ON l.reader_id = r.id\nJOIN copy c ON l.copy_id = c.id\nJOIN book b ON c.book_id = b.id\nWHERE l.actual_return_date IS NULL;' },
+      { label: 'Просроченные', q: 'SELECT l.id, r.full_name, b.name, l.planned_return_date\nFROM loan l\nJOIN reader r ON l.reader_id = r.id\nJOIN copy c ON l.copy_id = c.id\nJOIN book b ON c.book_id = b.id\nWHERE l.actual_return_date IS NULL AND l.planned_return_date < CURRENT_DATE;' },
+      { label: 'Выдать (передать экземпляр)', q: "-- Выполняется в 2 шага (последовательно):\nINSERT INTO loan (reader_id, copy_id, issue_date, planned_return_date)\nVALUES (<id читателя>, <id экземпляра>, CURRENT_DATE, date('now', '+14 day'));\nUPDATE copy SET status = 'на руках'\nWHERE id = <id экземпляра> AND status = 'в наличии';" },
+      { label: 'Продлить срок (+7 дней)', q: "UPDATE loan\nSET planned_return_date = date(planned_return_date, '+7 day')\nWHERE id = <id выдачи> AND actual_return_date IS NULL;" },
+      { label: 'Принять возврат по id выдачи', q: "-- Выполняется в 2 шага (последовательно):\nUPDATE loan SET actual_return_date = CURRENT_DATE\nWHERE id = <id выдачи>;\nUPDATE copy SET status = 'в наличии'\nWHERE id = (SELECT copy_id FROM loan WHERE id = <id выдачи>);" },
+      { label: 'История выдач читателя', q: 'SELECT * FROM loan\nWHERE reader_id = <id читателя>\nORDER BY issue_date DESC;' },
+    ],
+  },
+];
+
+// Открывает окно с готовым SQL-шаблоном, который можно отредактировать и выполнить.
+function openSQLTemplate(title, sql) {
+  const html = `
+    <div class="form-group">
+      <label>SQL-запрос (подставьте значения вместо &lt;...&gt;)</label>
+      <textarea id="sql-template" class="sql-template-area">${esc(sql)}</textarea>
+    </div>`;
+  openModal(title, html, () => {
+    const q = document.getElementById('sql-template').value.trim();
+    if (!q) return;
+    if (/<[^>]+>/.test(q)) {
+      showToast('Сначала подставьте значения вместо <...>', 'error');
+      return;
+    }
+    document.getElementById('sql-editor').value = q;
+    closeModal();
+    runSQL();
+  }, 'Выполнить');
+}
+
+// Разбивает текст на отдельные SQL-операторы (по ';'), игнорируя комментарии и пустые строки.
+function splitSQL(text) {
+  return text
+    .split(';')
+    .map(s => s.split('\n').filter(line => !line.trim().startsWith('--')).join('\n').trim())
+    .filter(s => s.length > 0);
+}
+
+function renderSQLResult(res) {
+  const rows = res.rows;
+  if (!rows || rows.length === 0) {
+    return '<div class="result-info">Запрос выполнен. Строк не возвращено.</div>';
+  }
+  const cols = Object.keys(rows[0]);
+  return `
+    <div class="result-info">Возвращено строк: ${res.count}</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead>
+        <tbody>${rows.slice(0, 500).map(row =>
+          `<tr>${cols.map(c => `<td>${esc(String(row[c] ?? ''))}</td>`).join('')}</tr>`
+        ).join('')}</tbody>
+      </table>
     </div>`;
 }
 
-const sqlExamples = [
-  { label: 'Все филиалы', q: 'SELECT * FROM filial;' },
-  { label: 'Все стеллажи', q: 'SELECT r.id, r.coordinates, r.room_number, f.name AS filial FROM rack r JOIN filial f ON r.filial_id = f.id;' },
-  { label: 'Все книги', q: 'SELECT * FROM book ORDER BY name;' },
-  { label: 'Все читатели', q: 'SELECT * FROM reader;' },
-  { label: 'Книги на руках', q: "SELECT c.id, b.name, b.author, r.full_name, l.issue_date FROM loan l JOIN copy c ON l.copy_id = c.id JOIN book b ON c.book_id = b.id JOIN reader r ON l.reader_id = r.id WHERE l.actual_return_date IS NULL;" },
-  { label: 'Просроченные', q: "SELECT l.id, r.full_name, b.name, l.planned_return_date FROM loan l JOIN reader r ON l.reader_id = r.id JOIN copy c ON l.copy_id = c.id JOIN book b ON c.book_id = b.id WHERE l.actual_return_date IS NULL AND l.planned_return_date < CURRENT_DATE;" },
-  { label: 'Экземпляры по филиалам', q: 'SELECT f.name, COUNT(c.id) AS total, SUM(CASE WHEN c.status = \'в наличии\' THEN 1 ELSE 0 END) AS available FROM copy c JOIN rack rk ON c.rack_id = rk.id JOIN filial f ON rk.filial_id = f.id GROUP BY f.name;' },
-  { label: 'Читатели по статусу', q: "SELECT status, COUNT(*) AS count FROM reader GROUP BY status;" },
-  { label: 'Регистрации читателя', q: "SELECT r.full_name, reg.ticket_number, f.name AS filial, reg.registration_date FROM registration reg JOIN reader r ON reg.reader_id = r.id JOIN filial f ON reg.filial_id = f.id;" },
-];
-
-function setSQLExample(q) {
-  document.getElementById('sql-editor').value = q;
-}
-
 async function runSQL() {
-  const query = document.getElementById('sql-editor').value.trim();
-  if (!query) return;
+  const raw = document.getElementById('sql-editor').value.trim();
+  if (!raw) return;
   const resultEl = document.getElementById('sql-result');
   resultEl.innerHTML = '<div class="loading"><div class="spinner"></div>Выполняется...</div>';
+
+  // Несколько операторов (выдача/возврат) выполняем последовательно: SQLite — по одному за раз.
+  const statements = splitSQL(raw);
   try {
-    const res = await api('POST', '/api/sql/', { query });
-    const rows = res.rows;
-    if (!rows || rows.length === 0) {
-      resultEl.innerHTML = '<div class="result-info">Запрос выполнен. Строк не возвращено.</div>';
-      return;
+    let last = null;
+    for (const stmt of statements) {
+      last = await api('POST', '/api/sql/', { query: stmt });
     }
-    const cols = Object.keys(rows[0]);
-    resultEl.innerHTML = `
-      <div class="result-info">Возвращено строк: ${res.count}</div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead>
-          <tbody>${rows.slice(0, 500).map(row =>
-            `<tr>${cols.map(c => `<td>${esc(String(row[c] ?? ''))}</td>`).join('')}</tr>`
-          ).join('')}</tbody>
-        </table>
-      </div>`;
+    let html = renderSQLResult(last || { rows: [], count: 0 });
+    if (statements.length > 1) {
+      html = `<div class="result-info">Выполнено операторов: ${statements.length}</div>` + html;
+    }
+    resultEl.innerHTML = html;
   } catch (e) {
     resultEl.innerHTML = `<div class="error-info">Ошибка: ${esc(e.message)}</div>`;
   }

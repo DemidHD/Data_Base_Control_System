@@ -1,11 +1,17 @@
-fastapi==0.111.0
-uvicorn[standard]==0.29.0
-tortoise-orm==0.21.3
-asyncpg==0.29.0
-aiosqlite==0.17.0
-python-dotenv==1.0.1
-pydantic==2.7.1
-jinja2==3.1.4
-python-multipart==0.0.9
-aiofiles==23.2.1
-aerich==0.7.2
+# Веб-фреймворк и ASGI-сервер
+fastapi==0.136.0
+uvicorn==0.44.0
+
+# ORM и валидация
+tortoise-orm==1.1.7
+pydantic==2.13.3
+
+# Шаблоны (templates/index.html)
+jinja2==3.1.2
+
+# Конфигурация через .env
+python-dotenv==1.2.2
+
+# Драйверы БД
+aiosqlite==0.22.1   # SQLite — используется по умолчанию
+asyncpg==0.31.0     # PostgreSQL — если задан DATABASE_URL=postgres://...
